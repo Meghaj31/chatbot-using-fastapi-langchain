@@ -1,18 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from pydantic import BaseModel
 from typing import List, Annotated
-import models
+import models,crud, schema
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 
 app=FastAPI()
 models.base.metadata.create_all(bind=engine)
-
-class Message(BaseModel):
-    messageText:str
-
-class Sessions(BaseModel):
-    sessionName:str
 
 def get_db():
     db=SessionLocal()
@@ -23,20 +17,18 @@ def get_db():
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
-@app.get("/")
-def hello():
-    return "hello world"
+@app.post("/user/create")
+def createUser(user:schema.UserCreate, db:db_dependency):
+    db_user = crud.getUser(db,userName = user.userName)
+    if db_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    return crud.createUser(db=db, user=user)
 
-@app.post("/message")
-async def createMessage(message:Message, db:Session = Depends(get_db)):
-    db_message=models.Messages(**message.model_dump())
-    db.add(db_message)
-    db.commit()
-    db.refresh(db_message)
+@app.get("/user/getbyId/{name}")
+def getUserbyId(username:str,db:db_dependency):
+    return crud.getUser(db,username)
 
-@app.post("/session")
-async def createSession(session:Sessions, db:Session = Depends(get_db)):
-    db_session = models.Sessions(**session.model_dump())
-    db.add(db_session)
-    db.commit()
-    db.refresh(db_session)
+
+@app.post("/sesison/create")
+def createSession(session:schema.SessionCreate, db:db_dependency):
+    return crud.createSession(db=db, session=session)
